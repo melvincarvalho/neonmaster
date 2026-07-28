@@ -103,18 +103,18 @@ const FLOORS = [
       '#.#.####.###.#.#',
       '#.#....D.....#.#',
       '#.####.######..#',
-      '#....#.#.....#.#',
-      '###.##.#.###.#.#',
+      '#...F#.#.....#.#',
+      '###.##.#.####.##',
       '#...#....#.#...#',
-      '#.###.####.###.#',
-      '#.....L....#..>#',
+      '#.###.####.#####',
+      '#.....L.......>#',
       '################',
     ],
     start: [1, 1, 1],   // x, y, facing (0N 1E 2S 3W)
     monsters: [{ t: 'husk', x: 9, y: 3 }, { t: 'husk', x: 5, y: 9 }, { t: 'screamer', x: 13, y: 7 }],
     items: [
       { t: 'ration', x: 3, y: 3 }, { t: 'torch', x: 1, y: 5 },
-      { t: 'key', x: 14, y: 1 }, { t: 'ration', x: 9, y: 9 },
+      { t: 'key', x: 14, y: 1 }, { t: 'ration', x: 8, y: 9 },
     ],
     doors: { '7,5': {}, '6,11': { locked: true } },
   },
@@ -137,14 +137,14 @@ const FLOORS = [
     ],
     start: [1, 1, 2],
     monsters: [{ t: 'screamer', x: 7, y: 3 }, { t: 'screamer', x: 3, y: 9 }, { t: 'husk', x: 11, y: 3 }, { t: 'husk', x: 8, y: 9 }],
-    items: [{ t: 'torch', x: 1, y: 9 }, { t: 'ration', x: 14, y: 5 }],
+    items: [{ t: 'torch', x: 1, y: 9 }, { t: 'ration', x: 14, y: 5 }, { t: 'ration', x: 7, y: 11 }],
     doors: { '10,7': { locked: true, plate: [10, 5] } },
   },
   {
     name: 'THE SHIFTING COURT', rim: '#b06bff',
     map: [
       '################',
-      '#<..#..........#',
+      '#<..#.........F#',
       '###.#.########.#',
       '#...#.#......#.#',
       '#.###.#.####.#.#',
@@ -159,7 +159,7 @@ const FLOORS = [
     ],
     start: [1, 1, 2],
     monsters: [{ t: 'wisp', x: 9, y: 3 }, { t: 'wisp', x: 13, y: 9 }, { t: 'husk', x: 6, y: 7 }, { t: 'husk', x: 3, y: 9 }],
-    items: [{ t: 'key', x: 10, y: 5 }, { t: 'ration', x: 5, y: 3 }, { t: 'torch', x: 14, y: 7 }],
+    items: [{ t: 'key', x: 10, y: 5 }, { t: 'ration', x: 5, y: 3 }, { t: 'torch', x: 14, y: 7 }, { t: 'ration', x: 9, y: 11 }],
     doors: { '13,11': { locked: true } },
     teleports: { '11,5': [1, 11], '1,11': [11, 5] },
   },
@@ -175,9 +175,9 @@ const FLOORS = [
       '#.#.#.....#.##.#',
       '#.#.#..*..#..#.#',
       '#.#.###D###.##.#',
-      '#.#.........#..#',
+      '#.#............#',
       '#.###########.##',
-      '#..............#',
+      '#.............F#',
       '################',
     ],
     start: [1, 1, 2],
@@ -205,7 +205,7 @@ const MON_DEFS = {
   husk: { name: 'VAULT HUSK', hp: 34, dmg: [8, 14], cool: 1.5, speed: 0.9, xp: 14, col: '#7fdcff', ranged: false },
   screamer: { name: 'SPORE SCREAMER', hp: 14, dmg: [2, 5], cool: 2.2, speed: 1.3, xp: 6, col: '#5aff9e', ranged: false, food: true },
   wisp: { name: 'ARC WISP', hp: 22, dmg: [6, 12], cool: 2.0, speed: 1.1, xp: 18, col: '#ffd12a', ranged: true },
-  golem: { name: 'EMBER WARDEN', hp: 260, dmg: [18, 30], cool: 1.8, speed: 1.4, xp: 120, col: '#ff5c5c', ranged: false, boss: true },
+  golem: { name: 'EMBER WARDEN', hp: 300, dmg: [18, 30], cool: 1.8, speed: 1.4, xp: 120, col: '#ff5c5c', ranged: false, boss: true },
 };
 
 let G = null;
@@ -258,7 +258,7 @@ function newGame(seed, opts) {
       mkChamp('WREN', 45, 30, { fight: 0, ninja: 1, priest: 1, wizard: 2 }, 'staff'),
       mkChamp('ASH', 40, 34, { fight: 0, ninja: 0, priest: 2, wizard: 3 }, 'staff'),
     ],
-    food: 78, water: 78, torch: 100, spareTorches: 1, glowT: 0, glowTier: 0,
+    food: 60, water: 78, torch: 100, spareTorches: 1, glowT: 0, glowTier: 0,
     keys: 0, hasPrism: false,
     runeSeq: [], castMsg: '', castMsgT: 0,
     mode: 'play', modeT: 0, msg: [], msgT: 0,
@@ -286,7 +286,7 @@ function loadFloor(fi, from) {
   G.monsters = (F.monsters || []).map((m, i) => ({
     id: i, ...m, ...structuredClone(MON_DEFS[m.t]),
     hp: MON_DEFS[m.t].hp, coolT: rng(0.5, 1.5), moveT: rng(0.2, 1),
-    hurtT: 0, dead: false,
+    hurtT: 0, dead: false, post: [m.x, m.y],
   }));
   G.groundItems = (F.items || []).map(it => ({ ...it }));
   if (G.floor.prism && !G.hasPrism) G.groundItems.push({ t: 'prism', x: G.floor.prism[0], y: G.floor.prism[1] });
@@ -315,7 +315,7 @@ function tryMove(dx, dy, strafe) {
     return false;
   }
   G.px = nx; G.py = ny;
-  G.moveT = 0.24;
+  G.moveT = 0.24 * (G.slowMul || 1);
   G.stepBob += 1;
   G.stats.steps++;
   SFX.step();
@@ -329,7 +329,7 @@ function strafeR() { const [dx, dy] = DIRS[(G.facing + 1) % 4]; return tryMove(d
 function turn(dir) {
   if (G.moveT > 0 || G.mode !== 'play') return;
   G.facing = (G.facing + dir + 4) % 4;
-  G.moveT = 0.16;
+  G.moveT = 0.16 * (G.slowMul || 1);
   SFX.turn();
 }
 function onEnterTile() {
@@ -461,6 +461,7 @@ function attack(ci) {
   const c = G.party[ci];
   if (!c || c.dead || c.coolT > 0 || G.mode !== 'play') return false;
   const isFront = ci < 2;
+  if (c.sta <= 5) { say(`${c.name} is too parched to swing.`); c.coolT = 0.8; return false; }
   const [fx, fy] = facingTile();
   const mon = G.monsters.find(m => !m.dead && m.x === fx && m.y === fy);
   c.coolT = isFront ? 1.1 : 1.5;
@@ -472,6 +473,10 @@ function attack(ci) {
     const dmg = Math.round(rng(1, 4) + c.skills.ninja * 1.5);
     damageMonster(mon, dmg, c, 'ninja');
     return true;
+  }
+  if (lightLevel() < 0.3 && rand() < 0.45) {
+    say(`${c.name} swings into the dark.`);
+    return false;
   }
   const [lo, hi] = WEAPON_DMG[c.weapon] || WEAPON_DMG.fist;
   const dmg = Math.round(rng(lo, hi) + c.skills.fight * 2 + (c.sta < 20 ? -3 : 0));
@@ -539,12 +544,14 @@ function castRunes() {
   const spell = SPELLS.find(s => s.runes.length === effect.length && s.runes.every((r, i) => r === effect[i]));
   G.runeSeq = [];
   if (!spell) { say('The runes refuse each other.'); SFX.fizzle(); return false; }
-  // the best living caster of that school casts it
-  let caster = null;
-  for (const c of aliveChamps()) if (!caster || c.skills[spell.school] > caster.skills[spell.school]) caster = c;
-  if (!caster) return false;
+  // the best living caster of that school who can pay the cost casts it
   const cost = spell.cost + tier;
-  if (caster.mana < cost) { say(`${caster.name} lacks the mana (${cost}).`); SFX.fizzle(); return false; }
+  let caster = null;
+  for (const c of aliveChamps()) {
+    if (c.mana < cost) continue;
+    if (!caster || c.skills[spell.school] > caster.skills[spell.school]) caster = c;
+  }
+  if (!caster) { say(`No one has the mana (${cost}).`); SFX.fizzle(); return false; }
   caster.mana -= cost;
   G.stats.casts++;
   SFX.cast();
@@ -563,9 +570,11 @@ function castRunes() {
     });
     say(`${caster.name} hurls ${spell.name.toLowerCase()}.`);
   } else if (spell.name === 'Mend') {
-    caster.hp = Math.min(caster.maxHp, caster.hp + 8 + power * 6);
+    let worst = caster;
+    for (const c of aliveChamps()) if (c.hp / c.maxHp < worst.hp / worst.maxHp) worst = c;
+    worst.hp = Math.min(worst.maxHp, worst.hp + 8 + power * 6);
     G.healFlashT = 0.3;
-    say(`${caster.name}'s wounds close.`);
+    say(`${caster.name} knits ${worst === caster ? 'their own' : worst.name + "'s"} wounds.`);
   } else if (spell.name === 'Vigour') {
     caster.sta = Math.min(100, caster.sta + 20 + power * 10);
     say(`${caster.name} breathes easier.`);
@@ -591,6 +600,19 @@ function simMonsters(dt) {
     const distX = G.px - m.x, distY = G.py - m.y;
     const dist = Math.abs(distX) + Math.abs(distY);
     const adjacent = dist === 1;
+    if (m.t === 'golem') {
+      if (m.hp < MON_DEFS.golem.hp) m.hp = Math.min(MON_DEFS.golem.hp, m.hp + 2 * dt);   // the coal heart reknits
+      if (dist > 4 && m.post) {
+        // the party fled: the Warden returns to its post
+        if (m.moveT <= 0 && (m.x !== m.post[0] || m.y !== m.post[1])) {
+          m.moveT = m.speed;
+          const sx2 = Math.sign(m.post[0] - m.x), sy2 = Math.sign(m.post[1] - m.y);
+          if (sx2 && passable(m.x + sx2, m.y, true)) m.x += sx2;
+          else if (sy2 && passable(m.x, m.y + sy2, true)) m.y += sy2;
+        }
+        continue;
+      }
+    }
     if (adjacent && m.coolT <= 0) {
       m.coolT = m.cool;
       const target = frontChamps()[Math.floor(rand() * Math.max(1, frontChamps().length))] || aliveChamps()[0];
@@ -670,15 +692,16 @@ function sim(dt) {
   if (G.mode !== 'play') return;
   if (G.moveT > 0) G.moveT -= dt;
   // survival drains: hunger, thirst, torchlight
-  G.food = Math.max(0, G.food - dt * 0.55);
-  G.water = Math.max(0, G.water - dt * 0.7);
-  G.torch = Math.max(0, G.torch - dt * 0.85);
+  G.food = Math.max(0, G.food - dt * 0.42);
+  G.water = Math.max(0, G.water - dt * 0.5);
+  G.torch = Math.max(0, G.torch - dt * 0.7);
   if (G.glowT > 0) G.glowT -= dt;
   for (const c of aliveChamps()) {
     if (c.coolT > 0) c.coolT -= dt;
     if (c.hurtT > 0) c.hurtT -= dt;
     c.sta = Math.min(100, c.sta + dt * 1.2);
-    c.mana = Math.min(c.maxMana, c.mana + dt * 0.25);
+    c.mana = Math.min(c.maxMana, c.mana + dt * 0.5);
+    if (G.water <= 0) c.sta = Math.max(0, c.sta - dt * 7);
     if (G.food <= 0 || G.water <= 0) {
       hurtQuiet(c, dt * 1.1);
     } else if (c.hp < c.maxHp && G.food > 30 && G.water > 30) {
@@ -1529,7 +1552,19 @@ function runVerifyInner(mode) {
   const seed = 20261;
   let outcome = 'FAILED', extra = {};
   newGame(seed, {});
-  if (mode === 'probe') {
+  if (mode === 'probe2') {
+    loadFloor(3, 'down');
+    G.px = 13; G.py = 11; G.facing = 0;
+    const s1 = bfsNext(13, 11, 6, 9);
+    const s2 = bfsNext(13, 11, 7, 9);
+    const s3 = bfsNext(13, 11, 13, 9);
+    const row9 = [];
+    for (let x = 0; x < 16; x++) row9.push(tileAt(x, 9));
+    const col13 = [];
+    for (let y = 8; y <= 11; y++) col13.push(tileAt(13, y));
+    extra = { to69: s1, to79: s2, to139: s3, row9: row9.join(''), col13: col13.join(''), pass1310: botPassable(13, 10), pass139: botPassable(13, 9) };
+    outcome = 'PROBE';
+  } else if (mode === 'probe') {
     // developer probe: report the world as parsed
     const F = G.floor;
     extra = { floor: G.floorIdx, px: G.px, py: G.py, facing: G.facing, w: F.w, h: F.h };
@@ -1654,6 +1689,22 @@ function runVerifyInner(mode) {
     tryMove(0, 1);   // onto the pad at (11,5)
     outcome = (G.px === 1 && G.py === 11) ? 'SOLVED' : 'FAILED';
     extra = { landedAt: [G.px, G.py] };
+  } else if (mode === 'mech-darkness') {
+    // blind swings miss: the torch is a weapon
+    const m = G.monsters[0];
+    m.x = 2; m.y = 1; m.hp = 100000; m.dmg = [0, 0];
+    G.px = 1; G.py = 1; G.facing = 1;
+    const swing = n => {
+      let hits = 0;
+      for (let i = 0; i < n; i++) { G.party[0].coolT = 0; G.party[0].sta = 100; const hp0 = m.hp; attack(0); if (m.hp < hp0) hits++; }
+      return hits;
+    };
+    G.torch = 100; G.glowT = 0;
+    const lit = swing(40);
+    G.torch = 0;
+    const dark = swing(40);
+    outcome = lit >= 38 && dark < 32 ? 'SOLVED' : 'FAILED';
+    extra = { litHits: lit + '/40', darkHits: dark + '/40' };
   } else if (mode === 'mech-rest') {
     const c = G.party[0];
     c.hp = 30;
@@ -1661,6 +1712,27 @@ function runVerifyInner(mode) {
     stepFor(30);
     outcome = c.hp > 32 ? 'SOLVED' : 'FAILED';
     extra = { hpAfterRest: Math.round(c.hp) };
+  } else if (mode === 'solution' || mode === 'solution-slow' || mode.startsWith('ablate-')) {
+    // ablations attack the human-pace run, where the survival economy has teeth
+    const slow = mode !== 'solution';
+    if (slow) G.slowMul = 3;
+    const ablate = {
+      food: mode === 'ablate-food',
+      drink: mode === 'ablate-drink',
+      runes: mode === 'ablate-runes' || mode === 'ablate-torch-runes',
+      torch: mode === 'ablate-torch' || mode === 'ablate-torch-runes',
+    };
+    const t = runDescent(ablate, 1500);
+    const alive = aliveChamps().length;
+    outcome = G.mode === 'won' ? 'WON' : G.mode === 'lost' ? 'LOST' : 'STALLED';
+    extra = {
+      time: Math.round(t), floor: G.floorIdx + 1, alive,
+      hp: G.party.map(c => Math.ceil(c.hp)),
+      food: Math.round(G.food), water: Math.round(G.water), torch: Math.round(G.torch),
+      steps: G.stats.steps, kills: G.stats.kills, casts: G.stats.casts,
+      meals: G.stats.meals, drinks: G.stats.drinks, falls: G.stats.falls,
+      obj: G.objIdx, prism: G.hasPrism, floorTimes: G.floorTimes, trail: (G.trail || []).slice(-14),
+    };
   } else if (mode === 'null') {
     // a party that does nothing is eaten by the dungeon's arithmetic
     stepFor(600);
@@ -1733,6 +1805,290 @@ function runShot(name) {
   }
   draw();
   if (document.title !== 'shot-FAILED') document.title = 'shot-ready';
+}
+
+// ---------- the descent bot: authored objectives, computed execution ----------
+// Objectives per floor are THE SOLUTION; the bot routes between them by BFS,
+// while a survival policy eats, drinks, relights, and fights whatever blocks the way.
+const DESCENT = [
+  [ // floor 1
+    { do: 'grab', at: [1, 5] },          // torch
+    { do: 'grab', at: [3, 3] },          // ration
+    { do: 'grab', at: [8, 9] },          // ration
+    { do: 'grab', at: [14, 1] },         // the iron key
+    { do: 'door', at: [6, 11] },
+    { do: 'goto', at: [14, 11] },        // stairs down
+  ],
+  [ // floor 2
+    { do: 'grab', at: [1, 9] },          // torch
+    { do: 'press', at: [10, 5] },        // the plate that opens the gate
+    { do: 'door', at: [10, 7] },
+    { do: 'grab', at: [14, 5] },         // ration
+    { do: 'drink', at: [8, 9] },         // the fountain
+    { do: 'goto', at: [14, 11] },
+  ],
+  [ // floor 3
+    { do: 'grab', at: [5, 3] },          // ration
+    { do: 'grab', at: [10, 5] },         // the second key (through the folded ways)
+    { do: 'grab', at: [14, 7] },         // torch
+    { do: 'door', at: [13, 11] },
+    { do: 'goto', at: [14, 11] },
+  ],
+  [ // floor 4
+    { do: 'hunt', at: [7, 9] },          // the Ember Warden
+    { do: 'door', at: [7, 8] },
+    { do: 'grab', at: [7, 7] },          // the Ember Prism
+    { do: 'goto', at: [7, 5] },          // the Core
+  ],
+];
+function botPassable(x, y) {
+  const t = tileAt(x, y);
+  if (t === '#') return false;
+  if (t === 'P') return false;                        // the bot does not fall on purpose
+  return true;                                        // closed doors are edges: we open as we come to them
+}
+function bfsNext(sx, sy, tx, ty) {
+  // returns [dx,dy] of the first step of the shortest path, teleporter edges included
+  if (sx === tx && sy === ty) return null;
+  const L = G.floor;
+  const prev = new Map();
+  const key = (x, y) => y * 64 + x;
+  const qq = [[sx, sy]];
+  prev.set(key(sx, sy), null);
+  while (qq.length) {
+    const [cx, cy] = qq.shift();
+    for (const [dx, dy] of DIRS) {
+      let nx = cx + dx, ny = cy + dy;
+      if (nx < 0 || ny < 0 || nx >= L.w || ny >= L.h) continue;
+      if (!botPassable(nx, ny)) continue;
+      // stepping on a pad relocates you: the edge lands at the far end
+      const tp = G.teleports[`${nx},${ny}`];
+      let lx = nx, ly = ny;
+      if (tp && !(nx === tx && ny === ty)) { lx = tp[0]; ly = tp[1]; }
+      if (prev.has(key(lx, ly))) continue;
+      prev.set(key(lx, ly), [cx, cy, dx, dy]);
+      if (lx === tx && ly === ty) {
+        // walk back to the first step
+        let cur = [lx, ly];
+        let step = null;
+        while (cur) {
+          const p = prev.get(key(cur[0], cur[1]));
+          if (!p) break;
+          step = [p[2], p[3]];
+          cur = [p[0], p[1]];
+        }
+        return step;
+      }
+      qq.push([lx, ly]);
+    }
+  }
+  return null;
+}
+function faceToward(dx, dy) {
+  const want = DIRS.findIndex(d => d[0] === dx && d[1] === dy);
+  if (want === G.facing) return true;
+  const diff = (want - G.facing + 4) % 4;
+  turn(diff === 3 ? -1 : 1);
+  return false;
+}
+function adjacentMonster() {
+  for (let f = 0; f < 4; f++) {
+    const [dx, dy] = DIRS[f];
+    const m = G.monsters.find(mm => !mm.dead && mm.x === G.px + dx && mm.y === G.py + dy);
+    if (m) return { m, f };
+  }
+  return null;
+}
+function botTick(ablate) {
+  if (G.mode !== 'play' || G.moveT > 0) return;
+  const obj = (DESCENT[G.floorIdx] || [])[G.objIdx || 0];
+  // 0. survival policy
+  if (!ablate.food && G.food < 45 && (G.rations || 0) > 0) { eat(); return; }
+  if (!ablate.drink && G.water < 40) {
+    // find the nearest fountain on this floor and drink deep
+    let fx2 = -1, fy2 = -1, bd = 1e9;
+    for (let y = 0; y < G.floor.h; y++) for (let x = 0; x < G.floor.w; x++) {
+      if (tileAt(x, y) === 'F') {
+        const d2 = Math.abs(x - G.px) + Math.abs(y - G.py);
+        if (d2 < bd) { bd = d2; fx2 = x; fy2 = y; }
+      }
+    }
+    if (fx2 >= 0) {
+      const [ffx, ffy] = facingTile();
+      if ((ffx === fx2 && ffy === fy2) || (G.px === fx2 && G.py === fy2)) { drink(); return; }
+      if (bd === 1) {
+        faceToward(fx2 - G.px, fy2 - G.py);
+        return;
+      }
+      const step2 = bfsNext(G.px, G.py, fx2, fy2);
+      if (step2) {
+        if (!faceToward(step2[0], step2[1])) return;
+        tryMove(step2[0], step2[1]);
+        return;
+      }
+    }
+  }
+  if (!ablate.torch && G.torch < 25 && G.spareTorches > 0) { relight(); return; }
+  if (!ablate.torch && G.torch < 15 && G.spareTorches === 0 && G.glowT < 5) {
+    G.runeSeq = []; ['ON', 'FUL'].forEach(tapRune); castRunes();
+  }
+  // heal the wounded (stingier mid-siege: fireball mana wins wars)
+  if (!ablate.runes) {
+    const inSiege = (DESCENT[G.floorIdx] || [])[G.objIdx || 0]?.do === 'hunt' &&
+      G.monsters.some(m => !m.dead && m.t === 'golem' && m.hp < MON_DEFS.golem.hp);
+    const low = aliveChamps().find(c => c.hp < c.maxHp * (inSiege ? 0.22 : 0.35));
+    if (low && (low.skills.priest > 0 || low.skills.wizard > 0)) {
+      G.runeSeq = []; ['ON', 'VI'].forEach(tapRune);
+      if (castRunes()) return;
+    }
+  }
+  // 0.5 opportunism: pocket whatever lies at our feet or before us
+  {
+    const [ofx, ofy] = facingTile();
+    if (G.groundItems.some(i => (i.x === G.px && i.y === G.py) || (i.x === ofx && i.y === ofy))) {
+      grabHere();
+    }
+  }
+  // 1. fight whatever is beside us
+  const adj = adjacentMonster();
+  if (adj) {
+    if (adj.f !== G.facing) { faceToward(DIRS[adj.f][0], DIRS[adj.f][1]); return; }
+    const big = adj.m.t === 'golem';
+    if (!ablate.runes && big && G.tick % 2 === 0) {
+      G.runeSeq = []; ['EE', 'FUL', 'IR'].forEach(tapRune);
+      if (castRunes()) return;
+    }
+    let swung = false;
+    for (let i = 0; i < 4; i++) if (!G.party[i].dead && G.party[i].coolT <= 0) { attack(i); swung = true; }
+    if (!swung) stepFor(0.2);
+    return;
+  }
+  if (!obj) return;
+  const [tx, ty] = obj.at;
+  const here = G.px === tx && G.py === ty;
+  const [fx, fy] = facingTile();
+  const facingIt = fx === tx && fy === ty;
+  if (obj.do === 'hunt') {
+    const prey = G.monsters.find(m => !m.dead && (m.t === 'golem'));
+    if (!prey) { G.objIdx++; return; }
+    const manaPool = aliveChamps().reduce((a, c) => a + c.mana, 0);
+    const manaMax = aliveChamps().reduce((a, c) => a + c.maxMana, 0);
+    const distPrey = Math.abs(prey.x - G.px) + Math.abs(prey.y - G.py);
+    if (!ablate.runes && prey.hp >= MON_DEFS.golem.hp - 5 && distPrey > 5) {
+      // the war council: mend every wound, fill every well, then knock —
+      // unless the larder is empty, in which case waiting is just a slower death
+      if (G.food <= 5) { G.restHold = false; }
+      else {
+      const wounded = aliveChamps().find(c => c.hp < c.maxHp * 0.75);
+      if (wounded && manaPool > 12) {
+        G.runeSeq = []; ['ON', 'VI'].forEach(tapRune);
+        if (castRunes()) return;
+      }
+      if (wounded || manaPool < Math.min(manaMax - 2, 60)) { G.restHold = true; }
+      if (G.restHold && (wounded || manaPool < Math.min(manaMax - 1, 62))) return;
+      G.restHold = false;
+      }
+    }
+    const dxp = prey.x - G.px, dyp = prey.y - G.py;
+    const dist = Math.abs(dxp) + Math.abs(dyp);
+    const aligned = (dxp === 0 || dyp === 0);
+    if (!ablate.runes) {
+      // the kite: give ground when it closes, burn it when the corridor is clear
+      if (dist <= 2 && aliveChamps().some(c => c.mana > 10)) {
+        const away = DIRS[(DIRS.findIndex(d => d[0] === Math.sign(dxp) && d[1] === Math.sign(dyp)) + 2) % 4] ||
+          DIRS[(G.facing + 2) % 4];
+        const bx2 = G.px + away[0], by2 = G.py + away[1];
+        if (botPassable(bx2, by2)) {
+          // step back without turning: walk backward if we're facing the beast
+          const backDir = DIRS[(G.facing + 2) % 4];
+          if (backDir[0] === away[0] && backDir[1] === away[1]) { backward(); return; }
+          if (!faceToward(away[0], away[1])) return;
+          tryMove(away[0], away[1]);
+          return;
+        }
+      }
+      if (aligned && dist >= 2 && dist <= 4) {
+        const dir = DIRS.findIndex(d => d[0] === Math.sign(dxp) && d[1] === Math.sign(dyp));
+        if (dir !== G.facing) { faceToward(Math.sign(dxp), Math.sign(dyp)); return; }
+        G.runeSeq = []; ['EE', 'FUL', 'IR'].forEach(tapRune);
+        if (castRunes()) { stepFor(0.6); return; }
+      }
+    }
+    const step = bfsNext(G.px, G.py, prey.x, prey.y);
+    if (!step) { G.objIdx++; return; }   // no road to the beast: the theorem will judge
+    if (dist === 1) return;              // adjacency handled by the fight branch next tick
+    if (!faceToward(step[0], step[1])) return;
+    const [nx2, ny2] = [G.px + step[0], G.py + step[1]];
+    const nt = tileAt(nx2, ny2);
+    if ((nt === 'D' || nt === 'L') && !doorState(nx2, ny2)?.open) {
+      if (!useDoor() && !ablate.runes) { G.runeSeq = []; ['EE', 'ZO'].forEach(tapRune); castRunes(); }
+      return;
+    }
+    tryMove(step[0], step[1]);
+    return;
+  }
+  if (obj.do === 'grab') {
+    if (here || facingIt) {
+      const got = grabHere();
+      if (got || !G.groundItems.some(i => i.x === tx && i.y === ty)) G.objIdx++;
+      else G.objIdx++;   // nothing there: move on rather than loop forever
+      return;
+    }
+  } else if (obj.do === 'door') {
+    const d = doorState(tx, ty);
+    if (d && d.open) { G.objIdx++; return; }
+    if (facingIt) {
+      if (!useDoor() && !ablate.runes) {
+        G.runeSeq = []; ['EE', 'ZO'].forEach(tapRune);
+        castRunes();
+      }
+      if (doorState(tx, ty)?.open) G.objIdx++;
+      else stepFor(0.5);
+      return;
+    }
+  } else if (obj.do === 'press' || obj.do === 'goto') {
+    if (here) { G.objIdx++; return; }
+  } else if (obj.do === 'drink') {
+    if (ablate.drink) { G.objIdx++; return; }
+    if (facingIt || here) {
+      drink();
+      if (G.water > 85) G.objIdx++;
+      return;
+    }
+  }
+  // 2. route toward the objective (doors/drink target the adjacent approach)
+  let gx = tx, gy = ty;
+  const step = bfsNext(G.px, G.py, gx, gy);
+  if (!step) { G.objIdx++; return; }   // unreachable under current world: skip, the theorem will judge
+  const [sx2, sy2] = [G.px + step[0], G.py + step[1]];
+  const t2 = tileAt(sx2, sy2);
+  if ((t2 === 'D' || t2 === 'L') && !doorState(sx2, sy2)?.open) {
+    if (!faceToward(step[0], step[1])) return;
+    if (!useDoor() && !ablate.runes) { G.runeSeq = []; ['EE', 'ZO'].forEach(tapRune); castRunes(); }
+    return;
+  }
+  if (!faceToward(step[0], step[1])) return;
+  tryMove(step[0], step[1]);
+}
+function runDescent(ablate, cap) {
+  G.objIdx = 0;
+  G.floorTimes = [];
+  let lastFloor = G.floorIdx;
+  let simTime = 0;
+  while (simTime < cap && G.mode === 'play') {
+    if (G.floorIdx !== lastFloor) {
+      G.floorTimes.push([Math.round(simTime), ...G.party.map(c => Math.ceil(c.hp))]);
+      lastFloor = G.floorIdx; G.objIdx = 0;
+    }
+    botTick(ablate);
+    sim(SIMSTEP);
+    simTime += SIMSTEP;
+    if ((simTime * 60 | 0) % (60 * 40) === 0) {
+      const g2 = G.monsters.find(m => m.t === 'golem');
+      (G.trail = G.trail || []).push([Math.round(simTime), G.px, G.py, G.objIdx, g2 ? [g2.x, g2.y, Math.round(g2.hp)] : null]);
+    }
+  }
+  return simTime;
 }
 
 const q = new URLSearchParams(location.search);
