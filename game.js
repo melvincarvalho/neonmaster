@@ -700,7 +700,10 @@ function hurtQuiet(c, dmg) {
 
 // ---------- the dungeon eye: a first-person view built from nested planes ----------
 function planeRect(k) {
-  const s = [1.18, 0.74, 0.48, 0.335, 0.245, 0.185][Math.min(k, 5)];
+  const S = [1.18, 0.74, 0.48, 0.335, 0.245, 0.185];
+  const k2 = clamp(k, 0, 5);
+  const i = Math.floor(k2), f = k2 - i;
+  const s = S[i] + (S[Math.min(i + 1, 5)] - S[i]) * f;
   const cx = VX + VVW / 2, cy = VY + VVH / 2 + VVH * 0.02;
   return { x: cx - VVW * s / 2, y: cy - VVH * s / 2, w: VVW * s, h: VVH * s, cx, cy };
 }
@@ -881,22 +884,29 @@ function drawEye() {
         }
       }
     }
-    // entities in cells at depth d (drawn near plane, on the floor)
+  }
+  // second pass: the living things, far to near, over the finished stone
+  for (let d = MAXD - 1; d >= 0; d--) {
+    const bNear = clamp(light * (1 - d * 0.17), 0.03, 1);
     for (const o of [-2, -1, 0, 1, 2]) {
       if (d === 0 && o === 0) continue;
       const [tx, ty] = tileFrom(d, o);
-      // ground items
+      // walls between us and them hide them
+      let blocked = false;
+      for (let k = 1; k <= d; k++) {
+        const [bx2, by2] = tileFrom(k, 0);
+        const midT = tileAt(bx2, by2);
+        if (o === 0 && (midT === '#' || ((midT === 'D' || midT === 'L') && !doorState(bx2, by2)?.open)) && k <= d) { blocked = true; break; }
+      }
+      if (blocked) continue;
       for (const it of G.groundItems) {
         if (it.x !== tx || it.y !== ty) continue;
         drawItem(it, d, o, bNear);
       }
-      // core
       if (G.floor.core && G.floor.core[0] === tx && G.floor.core[1] === ty) drawCore(d, o, bNear);
-      // monsters
       const m = G.monsters.find(mm => !mm.dead && mm.x === tx && mm.y === ty);
       if (m) drawMonster(m, d, o, bNear);
     }
-    // projectiles at this depth
     for (const p of G.projectiles) {
       const [fx2, fy2] = DIRS[G.facing];
       const rel = (p.x - G.px) * fx2 + (p.y - G.py) * fy2;
@@ -1699,7 +1709,8 @@ function runShot(name) {
     loadFloor(3, 'down');
     G.px = 4; G.py = 9; G.facing = 1;
     G.monsters[0].x = 7; G.monsters[0].y = 9;
-    stepFor(1);
+    G.monsters[0].moveT = 99; G.monsters[0].coolT = 99;   // hold still for the portrait
+    stepFor(0.2);
   } else if (name === 'prism') {
     loadFloor(3, 'down');
     G.px = 7; G.py = 6; G.facing = 2;   // prism pedestal below at (7,7)
