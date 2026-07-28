@@ -94,8 +94,9 @@ The scores above are the panel's, judged before those fixes.
 - **Four floors vs canon's fourteen**, six spells vs dozens, no
   resurrection altars, no sleeping, no item weight or hands inventory,
   no champion mirrors — the party is fixed.
-- **Movement is instant grid snaps**, not the animated glide of the
-  original's best remakes.
+- **The camera glide is screen-space illusion** (zoom/slide easing),
+  not true interpolated world movement like the original's best
+  remakes.
 - Staged evidence shots are separate deterministic runs, not one
   continuous playthrough.
 
