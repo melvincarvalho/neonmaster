@@ -45,8 +45,8 @@ the way. Ablations delete policy branches, and `tools/playtest.sh`
 proves 23 claims headlessly, every build:
 
 - **the descent must be won twice**: at speedrun pace (t=68) and at
-  human pace with 3× action cooldowns (t=188), where the survival
-  economy has real teeth;
+  3× traversal pace (t=188), where the survival economy has real
+  teeth;
 - **a party that does nothing must LOSE** — the dungeon's arithmetic
   (hunger, thirst, the dark) is itself lethal;
 - **ablate-food LOSES** (starvation mid-descent), **ablate-drink LOSES**
@@ -68,7 +68,23 @@ proves 23 claims headlessly, every build:
 
 | round | composition | game-feel | HUD | visual mean | DM fidelity |
 |---|---|---|---|---|---|
-| 1 (final) | TBD | TBD | TBD | **TBD** | TBD |
+| 1 (final) | 3.4 | 2.4 | 4.3 | **3.4** | 5.5 |
+
+Final-round verdicts: fidelity — *"the rune words are right, skills
+advance by use, screamers are lunch… half the soul, rigorously proven.
+The harness is the most honest thing in the repo."* Composition — *"a
+tidy sci-fi HUD stapled to an unlit CAD wireframe."* Game-feel — *"until
+the camera actually moves, nothing else it does will matter."* A
+post-panel batch answered the sharpest cuts: the camera now glides,
+bobs, and recoils (the feel critic's number-one fix); torchlight became
+the art direction (warm breathing pool, hungry vignette, flicker);
+monsters grew half again; the door/fountain/pit shots now face their
+subjects; runes gained Enter-to-cast and Backspace-to-clear plus
+clickable survival buttons; champion bars are labeled and numbered;
+and the two harness oversells the fidelity critic caught were fixed —
+the melee-only bot now gets its fair pre-siege rest (the theorem still
+holds), and the dead hand-authored solution scaffolding was deleted.
+The scores above are the panel's, judged before those fixes.
 
 ## Honest assessment
 

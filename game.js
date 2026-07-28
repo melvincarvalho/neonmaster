@@ -301,7 +301,8 @@ function frontChamps() { return [G.party[0], G.party[1]].filter(c => !c.dead); }
 function aliveChamps() { return G.party.filter(c => !c.dead); }
 function lightLevel() {
   const t = clamp(G.torch / 100, 0, 1);
-  return clamp(0.16 + t * 0.7 + (G.glowT > 0 ? G.glowTier * 0.12 : 0), 0.12, 1.15);
+  const flick = 1 + Math.sin(G.time * 13) * 0.03 + Math.sin(G.time * 37) * 0.02;
+  return clamp((0.14 + t * 0.72 + (G.glowT > 0 ? G.glowTier * 0.12 : 0)) * flick, 0.1, 1.15);
 }
 
 // ---------- actions ----------
@@ -316,6 +317,8 @@ function tryMove(dx, dy, strafe) {
   }
   G.px = nx; G.py = ny;
   G.moveT = 0.24 * (G.slowMul || 1);
+  G.moveDur = G.moveT;
+  G.moveKind = strafe ? 'S' : (dx === DIRS[G.facing][0] && dy === DIRS[G.facing][1] ? 'F' : 'B');
   G.stepBob += 1;
   G.stats.steps++;
   SFX.step();
@@ -330,6 +333,8 @@ function turn(dir) {
   if (G.moveT > 0 || G.mode !== 'play') return;
   G.facing = (G.facing + dir + 4) % 4;
   G.moveT = 0.16 * (G.slowMul || 1);
+  G.moveDur = G.moveT;
+  G.moveKind = dir < 0 ? 'TL' : 'TR';
   SFX.turn();
 }
 function onEnterTile() {
@@ -465,6 +470,7 @@ function attack(ci) {
   const [fx, fy] = facingTile();
   const mon = G.monsters.find(m => !m.dead && m.x === fx && m.y === fy);
   c.coolT = isFront ? 1.1 : 1.5;
+  c.coolMax = c.coolT;
   c.sta = Math.max(0, c.sta - 3);
   SFX.swing();
   if (!mon) { return false; }
@@ -535,6 +541,7 @@ function tapRune(r) {
   SFX.rune();
   if (POWER_RUNES.includes(r)) { G.runeSeq = [r]; return; }
   if (G.runeSeq.length === 0) { say('Begin with a power rune.'); return; }
+  if (G.runeSeq.length >= 4) return;
   G.runeSeq.push(r);
 }
 function castRunes() {
@@ -691,6 +698,7 @@ function sim(dt) {
   G.hintT = Math.max(0, G.hintT - dt);
   if (G.mode !== 'play') return;
   if (G.moveT > 0) G.moveT -= dt;
+  if (G.bumpT > 0) G.bumpT -= dt;
   // survival drains: hunger, thirst, torchlight
   G.food = Math.max(0, G.food - dt * 0.42);
   G.water = Math.max(0, G.water - dt * 0.5);
@@ -752,7 +760,22 @@ function drawEye() {
   ctx.fillStyle = '#020308';
   ctx.fillRect(VX, VY, VVW, VVH);
   if (G.shake > 0) ctx.translate(rng(-1, 1) * G.shake * 0.6, rng(-1, 1) * G.shake * 0.4);
-  const bob = Math.sin(G.stepBob * Math.PI) * 0;   // reserved
+  // the eye is a body: it glides, bobs, and recoils
+  const cx0 = VX + VVW / 2, cy0 = VY + VVH / 2;
+  if (G.moveT > 0 && G.moveDur > 0) {
+    const k = clamp(G.moveT / G.moveDur, 0, 1);          // 1 -> 0 over the move
+    const e = k * k * (3 - 2 * k);                        // smooth
+    if (G.moveKind === 'F') { ctx.translate(cx0, cy0); ctx.scale(1 - e * 0.06, 1 - e * 0.06); ctx.translate(-cx0, -cy0); ctx.translate(0, e * 7); }
+    else if (G.moveKind === 'B') { ctx.translate(cx0, cy0); ctx.scale(1 + e * 0.05, 1 + e * 0.05); ctx.translate(-cx0, -cy0); }
+    else if (G.moveKind === 'TL') ctx.translate(-e * VVW * 0.16, 0);
+    else if (G.moveKind === 'TR') ctx.translate(e * VVW * 0.16, 0);
+    else if (G.moveKind === 'S') ctx.translate(0, e * 4);
+  }
+  if (G.bumpT > 0) {
+    const bk = G.bumpT / 0.18;
+    ctx.translate(cx0, cy0); ctx.scale(1 + bk * 0.03, 1 + bk * 0.03); ctx.translate(-cx0, -cy0);
+  }
+  const bob = Math.sin(G.stepBob * Math.PI * 2 + G.time * 0.001) * 0;
   const MAXD = 5;
   for (let d = MAXD - 1; d >= 0; d--) {
     const bNear = clamp(light * (1 - d * 0.17), 0.03, 1);
@@ -946,10 +969,21 @@ function drawEye() {
       ctx.restore();
     }
   }
-  // breath of the dark: vignette scaled by torchlight
-  const vg = ctx.createRadialGradient(VX + VVW / 2, VY + VVH / 2, VVH * 0.2, VX + VVW / 2, VY + VVH / 2, VVH * 0.85);
+  // torchlight is warmth: a breathing amber pool around the eye
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const warm = ctx.createRadialGradient(VX + VVW / 2, VY + VVH * 0.62, 0, VX + VVW / 2, VY + VVH * 0.62, VVH * 0.75);
+  const wa = clamp((light - 0.14) * 0.22, 0, 0.16);
+  warm.addColorStop(0, `rgba(255,170,90,${wa})`);
+  warm.addColorStop(0.6, `rgba(255,120,50,${wa * 0.35})`);
+  warm.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = warm;
+  ctx.fillRect(VX, VY, VVW, VVH);
+  ctx.restore();
+  // and the dark is hungry: vignette closes in as the flame dies
+  const vg = ctx.createRadialGradient(VX + VVW / 2, VY + VVH / 2, VVH * (0.12 + light * 0.25), VX + VVW / 2, VY + VVH / 2, VVH * (0.5 + light * 0.45));
   vg.addColorStop(0, 'rgba(0,0,0,0)');
-  vg.addColorStop(1, `rgba(0,0,6,${clamp(0.9 - light * 0.55, 0.25, 0.85)})`);
+  vg.addColorStop(1, `rgba(0,0,4,${clamp(1.0 - light * 0.6, 0.3, 0.95)})`);
   ctx.fillStyle = vg;
   ctx.fillRect(VX, VY, VVW, VVH);
   // hurt / heal flashes
@@ -1026,7 +1060,7 @@ function drawMonster(m, d, o, b) {
   const p = planeRect(d);
   const x = cellX(d + 0.5, o);
   const baseY = p.y + p.h * 0.93;
-  const s = (1 - d * 0.15) * (m.boss ? 1.6 : 1);
+  const s = (1.5 - d * 0.24) * (m.boss ? 1.7 : 1);
   const wob = Math.sin(G.time * 3 + m.id * 2) * 3;
   const col = m.col;
   ctx.save();
@@ -1189,12 +1223,24 @@ function drawSidebar() {
   ['LO..MON = power', 'FUL glow · FUL IR fireball', 'DES VEN venom · VI mend', 'YA vigour · ZO opens doors'].forEach((s, i) => {
     ctx.fillText(s, SX, gy + i * 14);
   });
+  // one-click survival
+  ;[['EAT', 'X'], ['DRINK', 'C'], ['TORCH', 'R'], ['SWAP', 'Z']].forEach(([nm, kk], i) => {
+    const bx2 = SX + i * ((SW + 8) / 4), by2 = gy + 56, bw2 = (SW - 24) / 4;
+    const hv = mouse.x > bx2 && mouse.x < bx2 + bw2 && mouse.y > by2 && mouse.y < by2 + 22;
+    ctx.fillStyle = hv ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)';
+    ctx.strokeStyle = 'rgba(160,195,230,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.roundRect(bx2, by2, bw2, 22, 5); ctx.fill(); ctx.stroke();
+    ctx.font = '700 8px Verdana, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(210,232,255,0.9)';
+    ctx.fillText(nm, bx2 + bw2 / 2, by2 + 14);
+  });
   // message log
-  label('THE DARK SPEAKS', SX, gy + 66);
+  label('THE DARK SPEAKS', SX, gy + 90);
   ctx.font = '600 10.5px Verdana, sans-serif';
-  G.msg.slice(0, 4).forEach((m, i) => {
-    ctx.fillStyle = `rgba(210,232,255,${0.95 - i * 0.22})`;
-    ctx.fillText(m.length > 42 ? m.slice(0, 42) + '…' : m, SX, gy + 84 + i * 16);
+  G.msg.slice(0, 3).forEach((m, i) => {
+    ctx.fillStyle = `rgba(210,232,255,${0.95 - i * 0.26})`;
+    ctx.fillText(m.length > 42 ? m.slice(0, 42) + '…' : m, SX, gy + 108 + i * 16);
   });
 }
 function drawRuneBtn(r, x, y, w, h, col) {
@@ -1241,13 +1287,18 @@ function drawHUD() {
     ctx.font = `700 9px ${MONO}`;
     ctx.fillStyle = 'rgba(180,210,240,0.75)';
     ctx.fillText(`F${c.skills.fight} N${c.skills.ninja} P${c.skills.priest} W${c.skills.wizard}`, r.x + 12, r.y + 50);
-    // bars
-    bar(r.x + 12, r.y + 60, 130, 8, c.hp / c.maxHp, c.hp / c.maxHp < 0.3 ? '#ff5c5c' : '#5aff9e');
-    bar(r.x + 12, r.y + 74, 130, 6, c.sta / 100, '#ffd12a');
-    bar(r.x + 12, r.y + 86, 130, 6, c.mana / c.maxMana, '#5fd4ff');
+    // bars, named and numbered
     ctx.font = `700 9px ${MONO}`;
-    ctx.fillStyle = 'rgba(200,225,250,0.8)';
-    ctx.fillText(`${Math.ceil(c.hp)}`, r.x + 148, r.y + 68);
+    ctx.fillStyle = 'rgba(150,180,215,0.8)';
+    ctx.fillText('HP', r.x + 12, r.y + 58);
+    ctx.fillText('ST', r.x + 12, r.y + 76);
+    ctx.fillText('MP', r.x + 12, r.y + 92);
+    bar(r.x + 30, r.y + 52, 112, 8, c.hp / c.maxHp, c.hp / c.maxHp < 0.3 ? '#ff5c5c' : '#5aff9e');
+    bar(r.x + 30, r.y + 70, 112, 6, c.sta / 100, '#ffd12a');
+    bar(r.x + 30, r.y + 86, 112, 6, c.mana / c.maxMana, '#5fd4ff');
+    ctx.fillStyle = 'rgba(220,240,255,0.9)';
+    ctx.fillText(`${Math.ceil(c.hp)}/${c.maxHp}`, r.x + 148, r.y + 60);
+    ctx.fillText(`${Math.ceil(c.mana)}`, r.x + 148, r.y + 93);
     // attack hand
     const hb = { x: r.x + r.w - 62, y: r.y + 44, w: 50, h: 54 };
     const ready = !c.dead && c.coolT <= 0;
@@ -1263,8 +1314,9 @@ function drawHUD() {
     ctx.font = '700 7.5px Verdana, sans-serif';
     ctx.fillText(c.weapon.toUpperCase(), hb.x + hb.w / 2, hb.y + 38);
     if (!ready && !c.dead) {
-      ctx.fillStyle = 'rgba(0,0,10,0.55)';
-      ctx.beginPath(); ctx.roundRect(hb.x, hb.y, hb.w, hb.h * clamp(c.coolT / 1.5, 0, 1), 7); ctx.fill();
+      const ck = clamp(c.coolT / (c.coolMax || 1.5), 0, 1);
+      ctx.fillStyle = 'rgba(0,0,10,0.6)';
+      ctx.beginPath(); ctx.roundRect(hb.x, hb.y + hb.h * (1 - ck), hb.w, hb.h * ck, 7); ctx.fill();
     }
     ctx.font = `700 8px ${MONO}`;
     ctx.fillStyle = 'rgba(160,195,230,0.6)';
@@ -1273,8 +1325,8 @@ function drawHUD() {
   // controls line
   ctx.font = `700 9px ${MONO}`;
   ctx.textAlign = 'left';
-  ctx.fillStyle = 'rgba(150,180,215,0.6)';
-  ctx.fillText('WASD+QE MOVE · 1-4 STRIKE · SPACE USE/GRAB · X EAT · C DRINK · R TORCH · Z SWAP RANKS', 24, H - 6);
+  ctx.fillStyle = 'rgba(150,180,215,0.7)';
+  ctx.fillText('WASD+QE MOVE · 1-4 STRIKE · SPACE USE/GRAB · X EAT · C DRINK · R TORCH · Z SWAP · ENTER CAST · BKSP CLEAR', 24, H - 10);
 }
 function banner(title, color, sub) {
   ctx.save();
@@ -1320,7 +1372,7 @@ function bannerButton(label2, color) {
 }
 function endStats() {
   const s = G.stats;
-  return `FLOOR ${G.floorIdx + 1} · ${s.steps} STEPS · ${s.kills} SLAIN · ${s.casts} SPELLS · ${Math.round(s.dmgDealt)} DEALT`;
+  return `FLOOR ${G.floorIdx + 1} · ${s.steps} STEP${s.steps === 1 ? '' : 'S'} · ${s.kills} SLAIN · ${s.casts} SPELL${s.casts === 1 ? '' : 'S'} · ${Math.round(s.dmgDealt)} DEALT`;
 }
 function draw() {
   if (G.showTitle) { drawTitle(); return; }
@@ -1433,6 +1485,8 @@ window.addEventListener('keydown', e => {
   if (k === 'c') drink();
   if (k === 'r') relight();
   if (k === 'z') swapRanks();
+  if (e.key === 'Enter') castRunes();
+  if (e.key === 'Backspace') { G.runeSeq = []; }
   const num = Number(k) - 1;
   if (num >= 0 && num < 4) attack(num);
 });
@@ -1467,6 +1521,13 @@ canvas.addEventListener('mousedown', () => {
     if (mouse.x > x && mouse.x < x + w && mouse.y > y && mouse.y < y + 28) tapRune(r);
   });
   if (mouse.x > SX + SW - 84 && mouse.x < SX + SW && mouse.y > VY + 336 && mouse.y < VY + 366) castRunes();
+  {
+    const gy2 = VY + 384;
+    ;[eat, drink, relight, swapRanks].forEach((fn, i) => {
+      const bx2 = SX + i * ((SW + 8) / 4), by2 = gy2 + 56, bw2 = (SW - 24) / 4;
+      if (mouse.x > bx2 && mouse.x < bx2 + bw2 && mouse.y > by2 && mouse.y < by2 + 22) fn();
+    });
+  }
   // click the view: interact
   if (mouse.x > VX && mouse.x < VX + VVW && mouse.y > VY && mouse.y < VY + VVH) {
     if (!useDoor()) grabHere();
@@ -1488,61 +1549,6 @@ function frame(t) {
 // ---------- harnesses: descents as theorems ----------
 function stepFor(s) { const n2 = Math.round(s / SIMSTEP); for (let i = 0; i < n2; i++) sim(SIMSTEP); }
 function stepUntil(cond, cap) { let n2 = 0; while (!cond() && n2 < cap) { sim(SIMSTEP); n2++; } }
-// A solution is a list of atomic actions replayed deterministically.
-// F forward, B back, SL/SR strafe, L/R turn, U use door, G grab, E eat, DR drink, RT relight,
-// A0..A3 attack, C:<runes> cast, W:<sec> wait, Z swap.
-function doAction(a) {
-  if (a === 'F') return forward();
-  if (a === 'B') return backward();
-  if (a === 'SL') return strafeL();
-  if (a === 'SR') return strafeR();
-  if (a === 'L') { turn(-1); return true; }
-  if (a === 'R') { turn(1); return true; }
-  if (a === 'U') return useDoor();
-  if (a === 'G') return grabHere();
-  if (a === 'E') return eat();
-  if (a === 'DR') return drink();
-  if (a === 'RT') return relight();
-  if (a === 'Z') { swapRanks(); return true; }
-  if (a.startsWith('A')) return attack(Number(a[1]));
-  if (a.startsWith('C:')) {
-    G.runeSeq = [];
-    for (const r of a.slice(2).split(',')) tapRune(r);
-    return castRunes();
-  }
-  if (a.startsWith('W:')) { stepFor(Number(a.slice(2))); return true; }
-  return false;
-}
-function runScript(script, filter, cap) {
-  let n = 0;
-  for (const a of script) {
-    if (filter && filter(a)) continue;
-    if (G.mode !== 'play') break;
-    // wait until the party can act
-    stepUntil(() => G.moveT <= 0, 60 * 3);
-    if (a.startsWith('A')) {
-      const ci = Number(a[1]);
-      stepUntil(() => G.party[ci].dead || G.party[ci].coolT <= 0, 60 * 4);
-    }
-    doAction(a);
-    G.log.push({ a, x: G.px, y: G.py, f: G.floorIdx, t: Math.round(G.time * 10) / 10 });
-    if (++n > (cap || 4000)) break;
-  }
-}
-// kill whatever stands ahead with champion strikes (and keep striking until it dies or we do)
-function scriptKill() {
-  const out = [];
-  for (let i = 0; i < 26; i++) out.push('A0', 'A1', 'W:1.2');
-  return out;
-}
-const SOLUTION = [
-  // ---- FLOOR 1: THE THRESHOLD (start 1,1 facing E) ----
-  'W:0.5',
-  // to the ration at (3,3): east then south twice
-  'F', 'F', 'F',              // 1,1 -> 4,1... wait: walls; path: (1,1)E ->(2,1)(3,1)(4,1)
-  'R',                        // face S
-  // ... we will rely on the recorded log to correct these paths during development
-];
 function runVerify(mode) {
   try { runVerifyInner(mode); }
   catch (e) { document.title = 'ERR:' + String(e && e.stack || e).replace(/\n/g, ' | ').slice(0, 300); }
@@ -1760,7 +1766,7 @@ function runShot(name) {
     G.px = 1; G.py = 1; G.facing = 1;
     stepFor(1.5);
   } else if (name === 'door') {
-    G.px = 7; G.py = 3; G.facing = 2;
+    G.px = 7; G.py = 4; G.facing = 2;
     stepFor(0.5);
   } else if (name === 'runes') {
     G.monsters[0].x = 4; G.monsters[0].y = 1;
@@ -1771,11 +1777,11 @@ function runShot(name) {
     stepFor(0.15);
   } else if (name === 'fountain') {
     loadFloor(1, 'down');
-    G.px = 8; G.py = 9; G.facing = 1;   // fountain at (8,9)... F is at map col 8 row 9
+    G.px = 9; G.py = 9; G.facing = 3;   // face the basin at (8,9)
     stepFor(0.5);
   } else if (name === 'pit') {
     loadFloor(1, 'down');
-    G.px = 6; G.py = 2; G.facing = 2;
+    G.px = 6; G.py = 3; G.facing = 2;   // the pit yawns one step ahead
     stepFor(0.5);
   } else if (name === 'boss') {
     loadFloor(3, 'down');
@@ -1974,18 +1980,21 @@ function botTick(ablate) {
     const manaPool = aliveChamps().reduce((a, c) => a + c.mana, 0);
     const manaMax = aliveChamps().reduce((a, c) => a + c.maxMana, 0);
     const distPrey = Math.abs(prey.x - G.px) + Math.abs(prey.y - G.py);
-    if (!ablate.runes && prey.hp >= MON_DEFS.golem.hp - 5 && distPrey > 5) {
+    if (prey.hp >= MON_DEFS.golem.hp - 5 && distPrey > 5) {
       // the war council: mend every wound, fill every well, then knock —
       // unless the larder is empty, in which case waiting is just a slower death
       if (G.food <= 5) { G.restHold = false; }
       else {
       const wounded = aliveChamps().find(c => c.hp < c.maxHp * 0.75);
-      if (wounded && manaPool > 12) {
+      if (!ablate.runes && wounded && manaPool > 12) {
         G.runeSeq = []; ['ON', 'VI'].forEach(tapRune);
         if (castRunes()) return;
       }
-      if (wounded || manaPool < Math.min(manaMax - 2, 60)) { G.restHold = true; }
-      if (G.restHold && (wounded || manaPool < Math.min(manaMax - 1, 62))) return;
+      const restedEnough = ablate.runes
+        ? !aliveChamps().some(c => c.sta < 90 || c.hp < c.maxHp * 0.9)   // melee rests body, not mana
+        : !(wounded || manaPool < Math.min(manaMax - 1, 62));
+      if (!restedEnough) { G.restHold = true; }
+      if (G.restHold && !restedEnough) return;
       G.restHold = false;
       }
     }
