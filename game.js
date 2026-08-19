@@ -1326,7 +1326,55 @@ function drawHUD() {
   ctx.font = `700 9px ${MONO}`;
   ctx.textAlign = 'left';
   ctx.fillStyle = 'rgba(150,180,215,0.7)';
-  ctx.fillText('WASD+QE MOVE · 1-4 STRIKE · SPACE USE/GRAB · X EAT · C DRINK · R TORCH · Z SWAP · ENTER CAST · BKSP CLEAR', 24, H - 10);
+  ctx.fillText(TOUCH
+    ? 'TAP THE PAD TO MOVE · TAP A HAND TO STRIKE · TAP THE VIEW TO USE/GRAB · TAP RUNES THEN CAST'
+    : 'WASD+QE MOVE · 1-4 STRIKE · SPACE USE/GRAB · X EAT · C DRINK · R TORCH · Z SWAP · ENTER CAST · BKSP CLEAR', 24, H - 10);
+}
+// ---------- touch: the genre-standard six-button pad ----------
+const TOUCH = ('ontouchstart' in window)
+  || (window.matchMedia && matchMedia('(pointer: coarse)').matches)
+  || new URLSearchParams(location.search).has('touch');
+const PAD_GLYPH = { TL: '↺', F: '▲', TR: '↻', SL: '◀', B: '▼', SR: '▶' };
+function padRects() {
+  const bw = 84, gap = 10, w3 = bw * 3 + gap * 2;
+  const x0 = VX + VVW - w3 - 14, y0 = VY + VVH - bw * 2 - gap - 14;
+  return [
+    ['TL', () => turn(-1)], ['F', forward], ['TR', () => turn(1)],
+    ['SL', strafeL], ['B', backward], ['SR', strafeR],
+  ].map(([k, fn], i) => ({
+    k, fn,
+    x: x0 + (i % 3) * (bw + gap), y: y0 + Math.floor(i / 3) * (bw + gap),
+    w: bw, h: bw,
+  }));
+}
+function drawPad() {
+  if (!TOUCH || G.mode !== 'play') return;
+  for (const b of padRects()) {
+    const held = padHeld && padHeld.k === b.k;
+    ctx.fillStyle = held ? 'rgba(120,160,220,0.3)' : 'rgba(10,16,30,0.55)';
+    ctx.strokeStyle = held ? 'rgba(200,225,255,0.9)' : 'rgba(160,195,230,0.5)';
+    ctx.lineWidth = held ? 2 : 1.2;
+    ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill(); ctx.stroke();
+    ctx.font = '900 30px Verdana, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(220,240,255,0.9)';
+    ctx.fillText(PAD_GLYPH[b.k], b.x + b.w / 2, b.y + b.h / 2 + 11);
+  }
+}
+function drawRotateHint() {
+  if (!TOUCH || window.innerHeight <= window.innerWidth) return;
+  ctx.save();
+  ctx.fillStyle = 'rgba(5,8,15,0.88)';
+  ctx.fillRect(0, 0, W, 96);
+  ctx.strokeStyle = 'rgba(255,209,42,0.5)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(0, 96); ctx.lineTo(W, 96); ctx.stroke();
+  ctx.font = '900 40px "Arial Black", Arial, sans-serif';
+  ctx.letterSpacing = '4px';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd12a';
+  ctx.fillText('ROTATE YOUR PHONE', W / 2, 64);
+  ctx.letterSpacing = '0px';
+  ctx.restore();
 }
 function banner(title, color, sub) {
   ctx.save();
@@ -1382,6 +1430,7 @@ function draw() {
   drawTopBar();
   drawSidebar();
   drawHUD();
+  drawPad();
   if (G.hintT > 0 && G.mode === 'play') {
     const HINTS = [
       'FOUR CHAMPIONS, ONE BODY: FRONT RANKS SWING, BACK RANKS CAST',
@@ -1402,14 +1451,15 @@ function draw() {
     ctx.fillStyle = 'rgba(4,5,10,0.6)';
     ctx.fillRect(0, 0, W, H);
     banner('THE CORE IS FED', '#ff8c9e', `THE DUNGEON EXHALES · ${endStats()}`);
-    bannerButton('DESCEND AGAIN  ·  SPACE', '#ff8c9e');
+    bannerButton(TOUCH ? 'DESCEND AGAIN' : 'DESCEND AGAIN  ·  SPACE', '#ff8c9e');
   }
   if (G.mode === 'lost') {
     ctx.fillStyle = 'rgba(4,5,10,0.6)';
     ctx.fillRect(0, 0, W, H);
     banner('THE DARK KEEPS YOU', '#ff5c5c', `ALL FOUR FELL · ${endStats()}`);
-    bannerButton('NEW PARTY  ·  SPACE', '#ff5c5c');
+    bannerButton(TOUCH ? 'NEW PARTY' : 'NEW PARTY  ·  SPACE', '#ff5c5c');
   }
+  drawRotateHint();
 }
 function drawTitle() {
   ctx.fillStyle = '#05060c';
@@ -1452,7 +1502,7 @@ function drawTitle() {
   ctx.letterSpacing = '3px';
   ctx.fillStyle = '#ffffff';
   ctx.shadowColor = '#b06bff'; ctx.shadowBlur = 12;
-  ctx.fillText('PRESS SPACE TO DESCEND', W / 2, ly + 118);
+  ctx.fillText(TOUCH ? 'TAP TO DESCEND' : 'PRESS SPACE TO DESCEND', W / 2, ly + 118);
   ctx.globalAlpha = 1; ctx.shadowBlur = 0;
   ctx.font = '600 13px Verdana, sans-serif';
   ctx.letterSpacing = '3px';
@@ -1461,6 +1511,7 @@ function drawTitle() {
   ctx.fillStyle = 'rgba(160,190,220,0.85)';
   ctx.fillText('CARRY THE EMBER PRISM TO THE CORE — AND FEED IT', W / 2, 496);
   ctx.letterSpacing = '0px';
+  drawRotateHint();
 }
 
 // ---------- input ----------
@@ -1490,49 +1541,69 @@ window.addEventListener('keydown', e => {
   const num = Number(k) - 1;
   if (num >= 0 && num < 4) attack(num);
 });
-canvas.addEventListener('mousemove', e => {
+let padHeld = null;
+function pointFromEvent(e) {
   const r = canvas.getBoundingClientRect();
   mouse.x = (e.clientX - r.left) * (W / r.width);
   mouse.y = (e.clientY - r.top) * (H / r.height);
+}
+canvas.addEventListener('mousemove', e => {
+  pointFromEvent(e);
   canvas.style.cursor = (mouse.y > H - HUD_H || mouse.x > VX + VVW || G.mode !== 'play') ? 'pointer' : 'crosshair';
 });
-canvas.addEventListener('mousedown', () => {
+canvas.addEventListener('pointerdown', e => {
+  e.preventDefault();
+  pointFromEvent(e);
   audio();
+  press(e.pointerId);
+});
+// release only the finger that holds the pad: a second-finger tap must not stop the walk
+const padRelease = e => { if (padHeld && e.pointerId === padHeld.pid) padHeld = null; };
+window.addEventListener('pointerup', padRelease);
+window.addEventListener('pointercancel', padRelease);
+function press(pid) {
+  const HS = TOUCH ? 8 : 0;   // touch hit-slop: fingers are not crosshairs
+  const inBox = (x, y, w, h, s) => mouse.x > x - (s ?? HS) && mouse.x < x + w + (s ?? HS) && mouse.y > y - (s ?? HS) && mouse.y < y + h + (s ?? HS);
   if (G.showTitle) { G.showTitle = false; newGame((Math.random() * 1e9) >>> 0, {}); return; }
   if ((G.mode === 'won' || G.mode === 'lost') && G.modeT > 0.6) {
-    const bx2 = W / 2 - 140, by2 = H / 2 + 76;
-    if (mouse.x > bx2 && mouse.x < bx2 + 280 && mouse.y > by2 && mouse.y < by2 + 40) newGame((Math.random() * 1e9) >>> 0, {});
+    if (inBox(W / 2 - 140, H / 2 + 76, 280, 40)) newGame((Math.random() * 1e9) >>> 0, {});
     return;
   }
   if (G.mode !== 'play') return;
+  // the movement pad, first claim on the view
+  if (TOUCH) {
+    for (const b of padRects()) {
+      if (inBox(b.x, b.y, b.w, b.h, 4)) { b.pid = pid; padHeld = b; b.fn(); return; }
+    }
+  }
   // champion attack hands
   champCardRects().forEach((r, i) => {
-    const hb = { x: r.x + r.w - 62, y: r.y + 44, w: 50, h: 54 };
-    if (mouse.x > hb.x && mouse.x < hb.x + hb.w && mouse.y > hb.y && mouse.y < hb.y + hb.h) attack(i);
+    if (inBox(r.x + r.w - 62, r.y + 44, 50, 54)) attack(i);
   });
   // runes
   const SX = VX + VVW + 16, SW = W - SX - 24;
+  const RS = TOUCH ? 3 : 0;   // rows sit 6px apart: slop only what the grid allows
   POWER_RUNES.forEach((r, i) => {
     const x = SX + (i % 3) * ((SW + 8) / 3), y = VY + 146 + Math.floor(i / 3) * 34, w = (SW - 16) / 3;
-    if (mouse.x > x && mouse.x < x + w && mouse.y > y && mouse.y < y + 28) tapRune(r);
+    if (inBox(x, y, w, 28, RS)) tapRune(r);
   });
   EFFECT_RUNES.forEach((r, i) => {
     const x = SX + (i % 3) * ((SW + 8) / 3), y = VY + 226 + Math.floor(i / 3) * 34, w = (SW - 16) / 3;
-    if (mouse.x > x && mouse.x < x + w && mouse.y > y && mouse.y < y + 28) tapRune(r);
+    if (inBox(x, y, w, 28, RS)) tapRune(r);
   });
-  if (mouse.x > SX + SW - 84 && mouse.x < SX + SW && mouse.y > VY + 336 && mouse.y < VY + 366) castRunes();
+  if (inBox(SX + SW - 84, VY + 336, 84, 30)) castRunes();
   {
     const gy2 = VY + 384;
     ;[eat, drink, relight, swapRanks].forEach((fn, i) => {
       const bx2 = SX + i * ((SW + 8) / 4), by2 = gy2 + 56, bw2 = (SW - 24) / 4;
-      if (mouse.x > bx2 && mouse.x < bx2 + bw2 && mouse.y > by2 && mouse.y < by2 + 22) fn();
+      if (inBox(bx2, by2, bw2, 22, RS)) fn();
     });
   }
   // click the view: interact
   if (mouse.x > VX && mouse.x < VX + VVW && mouse.y > VY && mouse.y < VY + VVH) {
     if (!useDoor()) grabHere();
   }
-});
+}
 
 // ---------- main loop ----------
 let last = 0, acc = 0;
@@ -1543,6 +1614,7 @@ function frame(t) {
   acc += dt;
   let n = 0;
   while (acc >= SIMSTEP && n < 5) { sim(SIMSTEP); acc -= SIMSTEP; n++; }
+  if (padHeld && G.mode === 'play' && G.moveT <= 0) padHeld.fn();   // hold the pad to keep walking
   draw();
 }
 
