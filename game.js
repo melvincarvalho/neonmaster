@@ -1555,11 +1555,13 @@ canvas.addEventListener('pointerdown', e => {
   e.preventDefault();
   pointFromEvent(e);
   audio();
-  press();
+  press(e.pointerId);
 });
-window.addEventListener('pointerup', () => { padHeld = null; });
-window.addEventListener('pointercancel', () => { padHeld = null; });
-function press() {
+// release only the finger that holds the pad: a second-finger tap must not stop the walk
+const padRelease = e => { if (padHeld && e.pointerId === padHeld.pid) padHeld = null; };
+window.addEventListener('pointerup', padRelease);
+window.addEventListener('pointercancel', padRelease);
+function press(pid) {
   const HS = TOUCH ? 8 : 0;   // touch hit-slop: fingers are not crosshairs
   const inBox = (x, y, w, h, s) => mouse.x > x - (s ?? HS) && mouse.x < x + w + (s ?? HS) && mouse.y > y - (s ?? HS) && mouse.y < y + h + (s ?? HS);
   if (G.showTitle) { G.showTitle = false; newGame((Math.random() * 1e9) >>> 0, {}); return; }
@@ -1571,7 +1573,7 @@ function press() {
   // the movement pad, first claim on the view
   if (TOUCH) {
     for (const b of padRects()) {
-      if (inBox(b.x, b.y, b.w, b.h, 4)) { padHeld = b; b.fn(); return; }
+      if (inBox(b.x, b.y, b.w, b.h, 4)) { b.pid = pid; padHeld = b; b.fn(); return; }
     }
   }
   // champion attack hands
