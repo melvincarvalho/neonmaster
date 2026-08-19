@@ -20,9 +20,10 @@
 <meta name="twitter:description" content="A Dungeon Master tribute built by a harsh-critic agent loop. Zero assets. Machine-verified dungeon mechanics.">
 <meta name="twitter:image" content="https://melvincarvalho.github.io/neonmaster/og.png">
 <style>
-  html,body{margin:0;height:100%;background:#05060c;overflow:hidden}
+  html,body{margin:0;height:100%;background:#05060c;overflow:hidden;overscroll-behavior:none}
   body{display:flex;align-items:center;justify-content:center}
-  canvas{max-width:100vw;max-height:100vh;aspect-ratio:16/9;display:block;cursor:crosshair}
+  canvas{max-width:100vw;max-height:100vh;max-height:100dvh;aspect-ratio:16/9;display:block;cursor:crosshair;
+    touch-action:none;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 </style>
 </head>
 <body>
